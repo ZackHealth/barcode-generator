@@ -18,7 +18,7 @@ async function main() {
     const barcodeConfig: BarcodeConfig = {
       clientCode: "DK010",
       panelCode:  "APV13",
-      count:      42,
+      count:      4,
       outputDir:  "./output/barcodes",
     };
 

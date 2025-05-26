@@ -63,7 +63,7 @@ export async function createBarcodePDF(config: PDFConfig) {
   const rowsPerCol = Math.floor(pageH / (h + vSpace));
   const maxRows    = Math.floor(pageH / (h + vSpace));
   const borderIndex = Math.floor(rowsPerCol / 2);
-  let offsetY     = (pageH / 2) - (borderIndex * (h + vSpace));
+  let offsetY     = 0/*(pageH / 2) - (borderIndex * (h + vSpace))*/;
   const totalHeight = maxRows * (h + vSpace) - vSpace;
 
     // clamp offsetY so the block stays on the page
