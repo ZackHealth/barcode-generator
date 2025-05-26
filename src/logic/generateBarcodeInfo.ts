@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import fsPromises from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 
@@ -40,6 +41,9 @@ export async function generateBarcodeInfo(config: BarcodeConfig): Promise<Barcod
     count,
     outputDir,
   } = config;
+
+    await fsPromises.mkdir(outputDir, { recursive: true });
+
 
   const barcodes: BarcodeInfo[] = [];
 

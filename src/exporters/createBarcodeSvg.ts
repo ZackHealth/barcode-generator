@@ -1,7 +1,11 @@
 import { createCanvas } from "canvas";
 import JsBarcode from "jsbarcode";
 import { DOMImplementation, XMLSerializer } from "@xmldom/xmldom";
+import { getBarcodePhysicalDimensions } from "../logic/barCodeDimensions";
 
+
+const LABEL_WIDTH_CM = Math.round(8.5 * 37.8); // 8.5cm to pixels
+const LABEL_HEIGHT_CM = Math.round(1.4 * 37.8); // 1.4cm to pixels
 
 export function createBarcodeSVG(
   clientCode: string,
@@ -31,20 +35,23 @@ export function createBarcodeSVG(
   const svgRoot = svgDoc.documentElement!;
   
   // Label dimensions: 8.5cm x 1.4cm (convert to pixels, assuming 96dpi)
-  const width = Math.round(8.5 * 37.8); // 8.5cm to pixels
-  const height = Math.round(1.4 * 37.8); // 1.4cm to pixels
 
   const background = svgDoc.createElement("rect"); //add white background
-    background.setAttribute("x", "0");
-    background.setAttribute("y", "0");
-    background.setAttribute("width", width.toString());
-    background.setAttribute("height", height.toString());
-    background.setAttribute("fill", "white");
-      
-  svgRoot.setAttribute("width", width.toString());
-  svgRoot.setAttribute("height", height.toString());
-  svgRoot.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svgRoot.appendChild(background);
+  const { widthPx, heightPx } = getBarcodePhysicalDimensions();
+  const pad = 2;
+
+  // Update the root to include padding in its viewBox:
+svgRoot.setAttribute("viewBox", `0 0 ${widthPx} ${heightPx}`);
+svgRoot.setAttribute("width",  widthPx.toString());
+svgRoot.setAttribute("height", heightPx.toString());
+
+background.setAttribute("x",     (-pad).toString());
+background.setAttribute("y",     (-pad).toString());
+background.setAttribute("width",  (widthPx + pad*2).toString());
+background.setAttribute("height", (heightPx + pad*2).toString());
+background.setAttribute("fill",   "white");
+background.setAttribute("stroke", "none");
+svgRoot.insertBefore(background, svgRoot.firstChild);
   
   // Convert canvas to data URL and extract base64 image data
   const barcodeDataURL = canvas.toDataURL("image/png");
@@ -53,7 +60,7 @@ export function createBarcodeSVG(
   const image = svgDoc.createElement("image");
   image.setAttribute("x", "5");
   image.setAttribute("y", "5");
-  image.setAttribute("width", Math.round(width * 0.7).toString());
+  image.setAttribute("width", Math.round(LABEL_WIDTH_CM * 0.7).toString());
   image.setAttribute("height", "30");
   image.setAttribute("href", barcodeDataURL);
   svgRoot.appendChild(image);
@@ -61,7 +68,7 @@ export function createBarcodeSVG(
   // Add text elements for the data
   const barcodeText1 = svgDoc.createElement("text");
   barcodeText1.setAttribute("x", "235");
-  barcodeText1.setAttribute("y", (height - 40).toString());
+  barcodeText1.setAttribute("y", (LABEL_HEIGHT_CM - 40).toString());
   barcodeText1.setAttribute("font-family", "Arial");
   barcodeText1.setAttribute("font-size", "9");
   barcodeText1.textContent = `Panel Code: ${panelCode}`;
@@ -69,7 +76,7 @@ export function createBarcodeSVG(
   
   const barcodeText2 = svgDoc.createElement("text");
   barcodeText2.setAttribute("x", "235");
-  barcodeText2.setAttribute("y", (height - 30).toString());
+  barcodeText2.setAttribute("y", (LABEL_HEIGHT_CM - 30).toString());
   barcodeText2.setAttribute("font-family", "Arial");
   barcodeText2.setAttribute("font-size", "9");
   barcodeText2.textContent = `Sampling Date: `;
@@ -77,7 +84,7 @@ export function createBarcodeSVG(
   
   const barcodeText3 = svgDoc.createElement("text");
   barcodeText3.setAttribute("x", "90");
-  barcodeText3.setAttribute("y", (height - 6).toString());
+  barcodeText3.setAttribute("y", (LABEL_HEIGHT_CM - 6).toString());
   barcodeText3.setAttribute("font-family", "Arial");
   barcodeText3.setAttribute("font-size", "9");
   barcodeText3.textContent = barcodeText;

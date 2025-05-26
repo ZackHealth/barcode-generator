@@ -17,7 +17,7 @@ export async function getBarcodeConfig(): Promise<BarcodeConfig> {
 
   return {
     clientCode: "DK010",
-    panelCode: "APVAB",
+    panelCode: "APV13",
     count: 10,
     outputDir: "./output/barcodes",
   };
