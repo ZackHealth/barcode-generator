@@ -56,9 +56,9 @@ export async function createBarcodePDF(config: PDFConfig) {
 
   // 4) Layout loop
   const cols   = layout.columns;
-  const hSpace = layout.spacing.horizontal;
-  const totalW = cols * w + (cols - 1) * hSpace;
-  const offsetX = (pageW - totalW) / 2;
+  const centralGap = 10;                          // gap = barcode height
+  const totalW    = cols * w + centralGap;       // 2*w + gap
+  const offsetX   = (pageW - totalW) / 2;        // center the block
   const vSpace = layout.spacing.vertical;
   const rowsPerCol = Math.floor(pageH / (h + vSpace));
   const maxRows    = Math.floor(pageH / (h + vSpace));
@@ -85,8 +85,16 @@ export async function createBarcodePDF(config: PDFConfig) {
     }
     for (let col = 0; col < cols && idx < images.length; col++) {
       for (let row = 0; row < maxRows && idx < images.length; row++) {
-        const x = offsetX + col * (w + hSpace);
-        const y = offsetY + row * (h + vSpace);
+        const x = offsetX + col * (w + centralGap);
+        let y = offsetY + row * (h + vSpace);
+        if (row >= borderIndex) {
+          y += centralGap;
+        }
+
+        if (row >= borderIndex) {
+          y += centralGap;
+        }
+
         console.log(`   📍 Placing image ${idx + 1} at (${x.toFixed(1)},${y.toFixed(1)})`);
         const image = images[idx]!;
         doc.image(image.buffer, x, y, { width: w, height: h });
