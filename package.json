@@ -2,6 +2,14 @@
   "name": "blood-sample-barcodes",
   "module": "index.ts",
   "type": "module",
+  "imports": {
+    "bun/jsx-runtime": "./bun/jsx-runtime.ts",
+    "bun/jsx-dev-runtime": "./bun/jsx-dev-runtime.ts"
+  },
+  "scripts": {
+    "start": "bun run src/server.tsx",
+    "generate": "bun run src/main.ts"
+  },
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",

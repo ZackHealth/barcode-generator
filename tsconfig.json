@@ -6,10 +6,16 @@
     "module": "ESNext",
     "moduleDetection": "force",
     "jsx": "react-jsx",
+    "jsxImportSource": "bun",
     "allowJs": true,
 
     // Bundler mode
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "bun/jsx-runtime": ["./bun/jsx-runtime.ts"],
+      "bun/jsx-dev-runtime": ["./bun/jsx-dev-runtime.ts"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
