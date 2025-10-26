@@ -1,43 +1,34 @@
-import { PAGE_SIZES } from "../exporters/pdfDefaults";  
+// src/logic/types.ts
 
 export interface BarcodeConfig {
-    clientCode: string;
-    panelCode: string;
-    count: number;
-    outputDir: string;
-  }
-  
+  clientCode: string;
+  panelCode: string;
+  count: number;
+  outputDir: string; // directory where SVGs are written
+}
+
+export interface PDFLayout {
+  pageSize?: string; // key used in PAGE_SIZES (e.g., "A4")
+  columns?: number;
+  spacing?: {
+    vertical: number;
+  };
+}
+
 export interface PDFConfig {
+  // Where the SVGs live (kept for backward compatibility / path resolving)
   svgDirectory: string;
+
+  // Where to save the resulting PDF
   outputPath: string;
-  layout?: Partial<LayoutOptions>;
-}
-// If LayoutOptions isn’t in logic/types.ts yet
-export type PageSize = LayoutOptions["pageSize"];
 
-export interface LayoutOptions {
-  pageSize: "A4" | "Letter";
-  margins: number | { top: number; right: number; bottom: number; left: number };
-  columns: number;
-  spacing: { horizontal: number; vertical: number };
-  preservePhysicalSize: boolean;
-}
-export interface PageDimensions {
-  width:  number;
-  height: number;
-}
+  // Optional overrides for layout
+  layout?: PDFLayout;
 
-export type pageSize = "A4" | "Letter"
+  // ✅ NEW: prefer these when present
+  // A JSON file (written by the generator) with list of SVGs to print
+  manifestPath?: string;
 
-export interface MarginConfig {
-  top:    number;
-  right:  number;
-  bottom: number;
-  left:   number;
-}
-
-export interface PDFConfig {
-  svgDirectory: string;
-  outputPath:   string;
-  layout?:      Partial<LayoutOptions>;
+  // Or pass an explicit list of filenames (relative or absolute)
+  svgFiles?: string[];
 }

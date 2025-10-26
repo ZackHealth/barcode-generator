@@ -1,3 +1,5 @@
+// main.ts
+
 // Logic and config
 import {
   generateBarcodeInfo,
@@ -7,26 +9,27 @@ import {
 } from "./logic";
 
 // Exporters
-import { createBarcodeSVG } from "./exporters/createBarcodeSvg";
 import { createBarcodeCSVFile } from "./exporters/createBarcodeCsv";
 import { createBarcodePDF } from "./exporters/pdfGenerator";
 import type { PDFConfig } from "./logic/types";
 
+import path from "path";
+
 async function main() {
   try {
-    // 1️⃣ Generate barcodes
+    // 1️⃣ Generate barcodes (NEW batch)
     const barcodeConfig: BarcodeConfig = {
       clientCode: "DK010",
       panelCode:  "APV13",
-      count:      4,
+      count:      42,
       outputDir:  "./output/barcodes",
     };
 
     validateClientCode(barcodeConfig);
     console.log("Generating barcodes...");
-    const barcodes = await generateBarcodeInfo(barcodeConfig);
+    const barcodes = await generateBarcodeInfo(barcodeConfig); // writes SVGs + latest-batch.json
 
-    // 2️⃣ Export CSV
+    // 2️⃣ Export CSV for the same batch
     const labelCreationDate = formatDate(new Date());
     await createBarcodeCSVFile(
       barcodes,
@@ -36,24 +39,37 @@ async function main() {
     );
     console.log(`Generated ${barcodes.length} barcodes and saved CSV.`);
 
-    // 3️⃣ Export PDF
-    const pdfConfig: PDFConfig = {
+    // 3️⃣ Export PDF for ONLY the latest batch
+    const pdfConfig: PDFConfig & {
+      writeCsv?: boolean;
+      panelCode?: string;
+      csvOutputPath?: string;
+    } = {
       svgDirectory: barcodeConfig.outputDir,
-      outputPath:   "./output/barcodes.pdf",
+      // Optional placeholder — gets replaced:
+      outputPath:   "./output/labels-{timestamp}.pdf",
+      manifestPath: path.join(barcodeConfig.outputDir, "latest-batch.json"),
       layout: {
-        pageSize:           "A4",
-        margins:            0,
-        columns:            2,
-        spacing:            { horizontal: 0, vertical: 0 },
-        preservePhysicalSize: true,
+        pageSize: "A4",
+        columns:  2,
+        spacing:  { vertical: 0 },
       },
+
+      // NEW: turn on CSV export for the same batch (optional)
+      writeCsv: true,
+      panelCode: barcodeConfig.panelCode,
+      // Optional: control CSV path & name (supports {timestamp})
+      csvOutputPath: "./output/labels-{timestamp}.csv",
     };
-    console.log("Creating PDF of barcodes...");
+
+
+    console.log("Creating PDF of latest batch...");
     await createBarcodePDF(pdfConfig);
-    console.log("PDF generation complete.");
+    console.log("PDF generation complete (latest batch only).");
 
   } catch (error) {
     console.error("Error:", error);
+    process.exitCode = 1;
   }
 }
 
