@@ -11,6 +11,7 @@ import type { BarcodeInfo } from "./logic/generateBarcodeInfo";
 import type { PDFConfig } from "./logic/types";
 import { createBarcodeCSVFile } from "./exporters/createBarcodeCsv";
 import { createBarcodePDF } from "./exporters/pdfGenerator";
+import { appendBatchHistory } from "./batchHistory";
 
 export interface BatchResult {
   id: string;
@@ -97,7 +98,7 @@ export async function runBarcodeBatch(
 
   await createBarcodePDF(pdfConfig);
 
-  return {
+  const result: BatchResult = {
     id: batchId,
     clientCode: config.clientCode,
     panelCode: config.panelCode,
@@ -111,4 +112,8 @@ export async function runBarcodeBatch(
     csvPath: csvOutputPath,
     barcodes,
   };
+
+  await appendBatchHistory(result);
+
+  return result;
 }

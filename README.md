@@ -29,6 +29,13 @@ bun run src/server.tsx
 
 Visit <http://localhost:3000> to submit a batch and download results.
 
+### Browse previously generated batches
+
+The UI keeps a `batch-history.json` ledger in each output directory. Open
+<http://localhost:3000/batches> (the "View old batches" link opens it in a
+new tab) to see every batch that has been generated so far, along with direct
+links to re-download the PDF, CSV, or manifest for re-printing.
+
 ## Working with older clones
 
 If you cloned the project before the UI commit existed (for example,
