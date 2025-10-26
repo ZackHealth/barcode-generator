@@ -1,0 +1,790 @@
+From eae11282b1201afb5e4cc40fa605243b775874a5 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sun, 26 Oct 2025 10:04:26 +0000
+Subject: [PATCH] Add Bun JSX web UI for barcode batches
+
+## Summary
+- add a reusable `runBarcodeBatch` helper that wraps generation, CSV, and PDF creation
+- expose the barcode pipeline through a lightweight Bun JSX server with a minimal UI and download endpoints
+- wire up custom JSX runtime aliases and scripts so the web UI can render without React
+
+## Testing
+- bun run src/main.ts
+- bun run src/server.tsx
+---
+ bun/jsx-dev-runtime.ts |   4 +
+ bun/jsx-runtime.ts     | 105 ++++++++++++
+ package.json           |  10 +-
+ src/main.ts            |  76 ++-------
+ src/runBatch.ts        | 114 +++++++++++++
+ src/server.tsx         | 374 +++++++++++++++++++++++++++++++++++++++++
+ tsconfig.json          |   6 +
+ 7 files changed, 627 insertions(+), 62 deletions(-)
+ create mode 100644 bun/jsx-dev-runtime.ts
+ create mode 100644 bun/jsx-runtime.ts
+ create mode 100644 src/runBatch.ts
+ create mode 100644 src/server.tsx
+
+diff --git a/bun/jsx-dev-runtime.ts b/bun/jsx-dev-runtime.ts
+new file mode 100644
+index 0000000..6dbd051
+--- /dev/null
++++ b/bun/jsx-dev-runtime.ts
+@@ -0,0 +1,4 @@
++import { jsx } from "./jsx-runtime";
++
++export { jsx, jsxs, Fragment } from "./jsx-runtime";
++export const jsxDEV = jsx;
+diff --git a/bun/jsx-runtime.ts b/bun/jsx-runtime.ts
+new file mode 100644
+index 0000000..b615e6c
+--- /dev/null
++++ b/bun/jsx-runtime.ts
+@@ -0,0 +1,105 @@
++export type Props = Record<string, any> | null;
++export type ElementType = string | ((props: Record<string, any>) => JSXNode);
++
++export type JSXNode = JSXElement | string | number | boolean | null | undefined | JSXNode[];
++
++export interface JSXElement {
++  readonly type: ElementType | typeof Fragment;
++  readonly props: Props;
++  readonly key?: string;
++}
++
++export const Fragment = Symbol.for("fragment");
++
++export function jsx(type: ElementType | typeof Fragment, props: Props = null, key?: string): JSXElement {
++  return { type, props, key };
++}
++
++export const jsxs = jsx;
++
++const BOOLEAN_ATTRIBUTES = new Set(["disabled", "checked", "readonly", "multiple"]);
++
++function escapeHtml(value: string): string {
++  return value
++    .replace(/&/g, "&amp;")
++    .replace(/</g, "&lt;")
++    .replace(/>/g, "&gt;")
++    .replace(/"/g, "&quot;");
++}
++
++function attrName(name: string): string {
++  if (name === "className") return "class";
++  if (name === "htmlFor") return "for";
++  return name.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
++}
++
++function renderChildren(children: JSXNode): string {
++  if (Array.isArray(children)) {
++    return children.map(renderNode).join("");
++  }
++  return renderNode(children);
++}
++
++function renderNode(node: JSXNode): string {
++  if (node === null || node === undefined || node === false) {
++    return "";
++  }
++  if (node === true) {
++    return "";
++  }
++  if (Array.isArray(node)) {
++    return node.map(renderNode).join("");
++  }
++  if (typeof node === "string" || typeof node === "number") {
++    return escapeHtml(String(node));
++  }
++  if (typeof node !== "object") {
++    return escapeHtml(String(node));
++  }
++
++  const element = node as JSXElement;
++
++  if (element.type === Fragment) {
++    return renderChildren(element.props?.children ?? null);
++  }
++
++  if (typeof element.type === "function") {
++    const result = element.type({ ...(element.props ?? {}), key: element.key });
++    return renderNode(result as JSXNode);
++  }
++
++  const { children, dangerouslySetInnerHTML, ...rest } = element.props ?? {};
++  const attrs: string[] = [];
++
++  for (const [name, value] of Object.entries(rest)) {
++    if (value === null || value === undefined || value === false) continue;
++    const attr = attrName(name);
++    if (value === true && BOOLEAN_ATTRIBUTES.has(attr)) {
++      attrs.push(attr);
++    } else {
++      attrs.push(`${attr}="${escapeHtml(String(value))}"`);
++    }
++  }
++
++  const attrString = attrs.length > 0 ? " " + attrs.join(" ") : "";
++  let inner = "";
++  if (dangerouslySetInnerHTML && typeof dangerouslySetInnerHTML.__html === "string") {
++    inner = dangerouslySetInnerHTML.__html;
++  } else {
++    inner = renderChildren(children ?? null);
++  }
++
++  return `<${element.type}${attrString}>${inner}</${element.type}>`;
++}
++
++export function renderToHtml(node: JSXNode): string {
++  return "<!DOCTYPE html>" + renderNode(node);
++}
++
++declare global {
++  namespace JSX {
++    interface IntrinsicElements {
++      [elemName: string]: Record<string, any>;
++    }
++  }
++}
+diff --git a/package.json b/package.json
+index 7c651ec..731dd7f 100644
+--- a/package.json
++++ b/package.json
+@@ -2,6 +2,14 @@
+   "name": "blood-sample-barcodes",
+   "module": "index.ts",
+   "type": "module",
++  "imports": {
++    "bun/jsx-runtime": "./bun/jsx-runtime.ts",
++    "bun/jsx-dev-runtime": "./bun/jsx-dev-runtime.ts"
++  },
++  "scripts": {
++    "start": "bun run src/server.tsx",
++    "generate": "bun run src/main.ts"
++  },
+   "private": true,
+   "devDependencies": {
+     "@types/bun": "latest",
+@@ -20,4 +28,4 @@
+     "pdfkit": "^0.17.1",
+     "sharp": "^0.34.3"
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/src/main.ts b/src/main.ts
+index c2547e0..c100777 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1,72 +1,26 @@
+ // main.ts
+ 
+-// Logic and config
+-import {
+-  generateBarcodeInfo,
+-  validateClientCode,
+-  formatDate,
+-  type BarcodeConfig,
+-} from "./logic";
+-
+-// Exporters
+-import { createBarcodeCSVFile } from "./exporters/createBarcodeCsv";
+-import { createBarcodePDF } from "./exporters/pdfGenerator";
+-import type { PDFConfig } from "./logic/types";
+-
+-import path from "path";
++import { runBarcodeBatch } from "./runBatch";
+ 
+ async function main() {
+   try {
+-    // 1️⃣ Generate barcodes (NEW batch)
+-    const barcodeConfig: BarcodeConfig = {
++    const result = await runBarcodeBatch({
+       clientCode: "DK010",
+-      panelCode:  "APV13",
+-      count:      42,
+-      outputDir:  "./output/barcodes",
+-    };
++      panelCode: "APV13",
++      count: 42,
++      outputDir: "./output/barcodes",
++    });
+ 
+-    validateClientCode(barcodeConfig);
+-    console.log("Generating barcodes...");
+-    const barcodes = await generateBarcodeInfo(barcodeConfig); // writes SVGs + latest-batch.json
+-
+-    // 2️⃣ Export CSV for the same batch
+-    const labelCreationDate = formatDate(new Date());
+-    await createBarcodeCSVFile(
+-      barcodes,
+-      barcodeConfig.outputDir,
+-      barcodeConfig.panelCode,
+-      labelCreationDate
++    console.log(
++      `Generated ${result.generated} barcode(s) (requested ${result.requested}).`
+     );
+-    console.log(`Generated ${barcodes.length} barcodes and saved CSV.`);
+-
+-    // 3️⃣ Export PDF for ONLY the latest batch
+-    const pdfConfig: PDFConfig & {
+-      writeCsv?: boolean;
+-      panelCode?: string;
+-      csvOutputPath?: string;
+-    } = {
+-      svgDirectory: barcodeConfig.outputDir,
+-      // Optional placeholder — gets replaced:
+-      outputPath:   "./output/labels-{timestamp}.pdf",
+-      manifestPath: path.join(barcodeConfig.outputDir, "latest-batch.json"),
+-      layout: {
+-        pageSize: "A4",
+-        columns:  2,
+-        spacing:  { vertical: 0 },
+-      },
+-
+-      // NEW: turn on CSV export for the same batch (optional)
+-      writeCsv: true,
+-      panelCode: barcodeConfig.panelCode,
+-      // Optional: control CSV path & name (supports {timestamp})
+-      csvOutputPath: "./output/labels-{timestamp}.csv",
+-    };
+-
+-
+-    console.log("Creating PDF of latest batch...");
+-    await createBarcodePDF(pdfConfig);
+-    console.log("PDF generation complete (latest batch only).");
+-
++    console.log(`Manifest: ${result.manifestPath}`);
++    if (result.pdfPath) {
++      console.log(`PDF saved to: ${result.pdfPath}`);
++    }
++    if (result.csvPath) {
++      console.log(`CSV saved to: ${result.csvPath}`);
++    }
+   } catch (error) {
+     console.error("Error:", error);
+     process.exitCode = 1;
+diff --git a/src/runBatch.ts b/src/runBatch.ts
+new file mode 100644
+index 0000000..f9a1ee7
+--- /dev/null
++++ b/src/runBatch.ts
+@@ -0,0 +1,114 @@
++import fs from "fs/promises";
++import path from "path";
++
++import {
++  generateBarcodeInfo,
++  validateClientCode,
++  formatDate,
++  type BarcodeConfig,
++} from "./logic";
++import type { BarcodeInfo } from "./logic/generateBarcodeInfo";
++import type { PDFConfig } from "./logic/types";
++import { createBarcodeCSVFile } from "./exporters/createBarcodeCsv";
++import { createBarcodePDF } from "./exporters/pdfGenerator";
++
++export interface BatchResult {
++  id: string;
++  clientCode: string;
++  panelCode: string;
++  requested: number;
++  generated: number;
++  outputDir: string;
++  manifestPath: string;
++  manifestFiles: string[];
++  createdAt: string;
++  pdfPath?: string;
++  csvPath?: string;
++  barcodes: BarcodeInfo[];
++}
++
++export interface RunBatchOptions {
++  pdfOutputPath?: string;
++  csvOutputPath?: string;
++}
++
++function toBatchId(iso?: string) {
++  if (!iso) {
++    return `batch-${Date.now()}`;
++  }
++  return `batch-${iso.replace(/[:.]/g, "-").replace("T", "_").replace("Z", "")}`;
++}
++
++export async function runBarcodeBatch(
++  config: BarcodeConfig,
++  options: RunBatchOptions = {}
++): Promise<BatchResult> {
++  validateClientCode(config);
++
++  const barcodes = await generateBarcodeInfo(config);
++
++  const printingDate = formatDate(new Date());
++  await createBarcodeCSVFile(barcodes, config.outputDir, config.panelCode, printingDate);
++
++  const manifestPath = path.resolve(config.outputDir, "latest-batch.json");
++  let manifestCreatedAt = new Date().toISOString();
++  let manifestFiles: string[] = [];
++  try {
++    const raw = await fs.readFile(manifestPath, "utf-8");
++    const manifest = JSON.parse(raw) as { createdAt?: string; files?: string[] };
++    if (manifest.createdAt) {
++      manifestCreatedAt = manifest.createdAt;
++    }
++    if (Array.isArray(manifest.files)) {
++      manifestFiles = manifest.files;
++    }
++  } catch (error) {
++    console.warn("⚠️ Unable to read manifest after generation:", error);
++  }
++
++  const batchId = toBatchId(manifestCreatedAt);
++  const pdfOutputPath = path.resolve(
++    options.pdfOutputPath ?? path.join(config.outputDir, `${batchId}.pdf`)
++  );
++  const csvOutputPath = path.resolve(
++    options.csvOutputPath ?? path.join(config.outputDir, `${batchId}.csv`)
++  );
++
++  await fs.mkdir(path.dirname(pdfOutputPath), { recursive: true });
++  await fs.mkdir(path.dirname(csvOutputPath), { recursive: true });
++
++  const pdfConfig: PDFConfig & {
++    writeCsv: boolean;
++    panelCode: string;
++    csvOutputPath: string;
++  } = {
++    svgDirectory: config.outputDir,
++    outputPath: pdfOutputPath,
++    manifestPath,
++    layout: {
++      pageSize: "A4",
++      columns: 2,
++      spacing: { vertical: 0 },
++    },
++    writeCsv: true,
++    panelCode: config.panelCode,
++    csvOutputPath,
++  };
++
++  await createBarcodePDF(pdfConfig);
++
++  return {
++    id: batchId,
++    clientCode: config.clientCode,
++    panelCode: config.panelCode,
++    requested: config.count,
++    generated: barcodes.length,
++    outputDir: path.resolve(config.outputDir),
++    manifestPath,
++    manifestFiles,
++    createdAt: manifestCreatedAt,
++    pdfPath: pdfOutputPath,
++    csvPath: csvOutputPath,
++    barcodes,
++  };
++}
+diff --git a/src/server.tsx b/src/server.tsx
+new file mode 100644
+index 0000000..f9e7d63
+--- /dev/null
++++ b/src/server.tsx
+@@ -0,0 +1,374 @@
++/** @jsxImportSource bun */
++
++import fs from "fs/promises";
++import path from "path";
++
++import { renderToHtml } from "bun/jsx-runtime";
++
++import { runBarcodeBatch, type BatchResult } from "./runBatch";
++
++const batches = new Map<string, BatchResult>();
++const DEFAULT_OUTPUT_DIR = "./output/barcodes";
++
++function toRelative(filePath?: string) {
++  if (!filePath) return undefined;
++  return path.relative(process.cwd(), filePath);
++}
++
++function BatchTable({ batches }: { batches: BatchResult[] }) {
++  if (batches.length === 0) {
++    return (
++      <p className="empty">No batches generated in this session yet.</p>
++    );
++  }
++
++  return (
++    <table>
++      <thead>
++        <tr>
++          <th>Batch</th>
++          <th>Client</th>
++          <th>Panel</th>
++          <th>Labels</th>
++          <th>Created</th>
++          <th>Files</th>
++        </tr>
++      </thead>
++      <tbody>
++        {batches.map(batch => (
++          <tr>
++            <td>{batch.id}</td>
++            <td>{batch.clientCode}</td>
++            <td>{batch.panelCode}</td>
++            <td>{`${batch.generated}/${batch.requested}`}</td>
++            <td>{new Date(batch.createdAt).toLocaleString()}</td>
++            <td>
++              <div className="file-links">
++                <a href={`/download/${batch.id}/pdf`} target="_blank" rel="noopener">
++                  PDF
++                </a>
++                <a href={`/download/${batch.id}/csv`} target="_blank" rel="noopener">
++                  CSV
++                </a>
++                <a href={`/download/${batch.id}/manifest`} target="_blank" rel="noopener">
++                  Manifest
++                </a>
++              </div>
++            </td>
++          </tr>
++        ))}
++      </tbody>
++    </table>
++  );
++}
++
++function IndexPage({ batches }: { batches: BatchResult[] }) {
++  const script = String.raw`
++    const form = document.getElementById("batch-form");
++    form?.addEventListener("submit", async (event) => {
++      event.preventDefault();
++      const formEl = event.currentTarget;
++      if (!(formEl instanceof HTMLFormElement)) {
++        return;
++      }
++      const data = new FormData(formEl);
++      const payload = {
++        clientCode: data.get("clientCode"),
++        panelCode: data.get("panelCode"),
++        count: Number(data.get("count")),
++        outputDir: data.get("outputDir"),
++      };
++      const button = formEl.querySelector("button[type=submit]");
++      if (button) {
++        button.disabled = true;
++        button.textContent = "Generating…";
++      }
++      const status = document.getElementById("status");
++      status?.classList.remove("error");
++      status && (status.textContent = "Running batch…");
++      try {
++        const response = await fetch("/api/batches", {
++          method: "POST",
++          headers: { "Content-Type": "application/json" },
++          body: JSON.stringify(payload),
++        });
++        if (!response.ok) {
++          throw new Error(await response.text());
++        }
++        const body = await response.json();
++        status && (status.textContent = \`Created \${body.batch.generated} label(s).\`);
++        window.location.reload();
++      } catch (error) {
++        console.error(error);
++        status && (status.textContent = "Failed to create batch.");
++        status?.classList.add("error");
++      } finally {
++        if (button) {
++          button.disabled = false;
++          button.textContent = "Generate batch";
++        }
++      }
++    });
++  `;
++
++  return (
++    <html lang="en">
++      <head>
++        <meta charSet="utf-8" />
++        <title>Barcode batches</title>
++        <style>{`
++          :root {
++            color-scheme: light;
++            font-family: system-ui, sans-serif;
++            line-height: 1.5;
++          }
++          body {
++            margin: 0;
++            background: #f8fafc;
++          }
++          main {
++            max-width: 960px;
++            margin: 0 auto;
++            padding: 2.5rem 1.5rem 4rem;
++          }
++          h1 {
++            margin-bottom: 1rem;
++            font-size: 1.75rem;
++          }
++          form {
++            background: white;
++            border-radius: 12px;
++            padding: 1.5rem;
++            box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
++            display: grid;
++            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
++            gap: 1rem 1.5rem;
++            align-items: end;
++          }
++          label {
++            display: flex;
++            flex-direction: column;
++            font-size: 0.85rem;
++            text-transform: uppercase;
++            letter-spacing: 0.08em;
++            font-weight: 600;
++            color: #475569;
++            gap: 0.35rem;
++          }
++          input {
++            appearance: none;
++            border-radius: 8px;
++            border: 1px solid #cbd5f5;
++            padding: 0.6rem 0.75rem;
++            font-size: 1rem;
++          }
++          button {
++            border: none;
++            border-radius: 999px;
++            background: #2563eb;
++            color: white;
++            font-weight: 600;
++            padding: 0.75rem 1.5rem;
++            cursor: pointer;
++            transition: background 0.2s ease;
++          }
++          button:disabled {
++            background: #94a3b8;
++            cursor: not-allowed;
++          }
++          section {
++            margin-top: 2.5rem;
++            background: white;
++            border-radius: 12px;
++            padding: 1.5rem;
++            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
++          }
++          table {
++            width: 100%;
++            border-collapse: collapse;
++          }
++          th, td {
++            padding: 0.75rem;
++            text-align: left;
++            border-bottom: 1px solid #e2e8f0;
++            font-size: 0.95rem;
++          }
++          thead th {
++            font-size: 0.8rem;
++            letter-spacing: 0.05em;
++            text-transform: uppercase;
++            color: #64748b;
++          }
++          tbody tr:last-child td {
++            border-bottom: none;
++          }
++          .file-links {
++            display: flex;
++            gap: 0.75rem;
++          }
++          .file-links a {
++            color: #2563eb;
++            text-decoration: none;
++            font-weight: 600;
++          }
++          #status {
++            grid-column: 1 / -1;
++            margin-top: 0.25rem;
++            font-weight: 600;
++            color: #047857;
++          }
++          #status.error {
++            color: #dc2626;
++          }
++          .empty {
++            margin: 0;
++            color: #64748b;
++          }
++        `}</style>
++      </head>
++      <body>
++        <main>
++          <h1>Generate barcode batches</h1>
++          <form id="batch-form">
++            <label>
++              Client code
++              <input name="clientCode" type="text" required value="DK010" />
++            </label>
++            <label>
++              Panel code
++              <input name="panelCode" type="text" required value="APV13" />
++            </label>
++            <label>
++              Label count
++              <input name="count" type="number" min="1" max="52" required value="42" />
++            </label>
++            <label>
++              Output directory
++              <input
++                name="outputDir"
++                type="text"
++                required
++                value={DEFAULT_OUTPUT_DIR}
++              />
++            </label>
++            <button type="submit">Generate batch</button>
++            <div id="status" role="status"></div>
++          </form>
++          <section>
++            <h2>Recent batches</h2>
++            <BatchTable batches={batches} />
++          </section>
++        </main>
++        <script dangerouslySetInnerHTML={{ __html: script }} />
++      </body>
++    </html>
++  );
++}
++
++async function downloadFile(batch: BatchResult, kind: string) {
++  let target: string | undefined;
++  if (kind === "pdf") target = batch.pdfPath;
++  if (kind === "csv") target = batch.csvPath;
++  if (kind === "manifest") target = batch.manifestPath;
++  if (!target) {
++    return new Response("File not found", { status: 404 });
++  }
++
++  try {
++    await fs.access(target);
++    const file = Bun.file(target);
++    const name = path.basename(target);
++    return new Response(file, {
++      headers: {
++        "Content-Type": file.type || "application/octet-stream",
++        "Content-Disposition": `attachment; filename=\"${name}\"`,
++      },
++    });
++  } catch (error) {
++    return new Response("File not available", { status: 404 });
++  }
++}
++
++function serializeBatch(batch: BatchResult) {
++  const { barcodes, ...rest } = batch;
++  return {
++    ...rest,
++    outputDir: toRelative(batch.outputDir),
++    pdfPath: toRelative(batch.pdfPath),
++    csvPath: toRelative(batch.csvPath),
++    manifestPath: toRelative(batch.manifestPath),
++  };
++}
++
++Bun.serve({
++  port: Number(process.env.PORT ?? 3000),
++  async fetch(request) {
++    const url = new URL(request.url);
++
++    if (request.method === "GET" && url.pathname === "/") {
++      const recent = Array.from(batches.values()).sort((a, b) =>
++        b.createdAt.localeCompare(a.createdAt)
++      );
++      const page = renderToHtml(<IndexPage batches={recent} />);
++      return new Response(page, {
++        headers: { "Content-Type": "text/html; charset=utf-8" },
++      });
++    }
++
++    if (request.method === "GET" && url.pathname === "/api/batches") {
++      const payload = Array.from(batches.values())
++        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
++        .map(serializeBatch);
++      return Response.json({ batches: payload });
++    }
++
++    if (request.method === "GET" && url.pathname.startsWith("/download/")) {
++      const [, , id, kind] = url.pathname.split("/");
++      const batch = batches.get(id ?? "");
++      if (!batch || !kind) {
++        return new Response("Batch not found", { status: 404 });
++      }
++      return downloadFile(batch, kind);
++    }
++
++    if (request.method === "GET" && url.pathname.startsWith("/api/batches/")) {
++      const id = url.pathname.split("/").at(-1) ?? "";
++      const batch = batches.get(id);
++      if (!batch) {
++        return new Response("Batch not found", { status: 404 });
++      }
++      return Response.json({ batch: serializeBatch(batch) });
++    }
++
++    if (request.method === "POST" && url.pathname === "/api/batches") {
++      try {
++        const body = await request.json();
++        const clientCode = String(body.clientCode ?? "").trim();
++        const panelCode = String(body.panelCode ?? "").trim();
++        const count = Number(body.count ?? 0);
++        const outputDir = String(body.outputDir ?? DEFAULT_OUTPUT_DIR).trim() || DEFAULT_OUTPUT_DIR;
++
++        if (!clientCode || !panelCode || !Number.isFinite(count) || count <= 0) {
++          return new Response("Invalid payload", { status: 400 });
++        }
++
++        const result = await runBarcodeBatch({
++          clientCode,
++          panelCode,
++          count,
++          outputDir,
++        });
++
++        batches.set(result.id, result);
++        return Response.json({ batch: serializeBatch(result) }, { status: 201 });
++      } catch (error) {
++        console.error("Failed to run batch", error);
++        return new Response("Failed to run batch", { status: 500 });
++      }
++    }
++
++    return new Response("Not found", { status: 404 });
++  },
++});
++
++console.log("📡 UI server ready on http://localhost:3000");
+diff --git a/tsconfig.json b/tsconfig.json
+index ab0f0b0..df148e2 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -6,10 +6,16 @@
+     "module": "ESNext",
+     "moduleDetection": "force",
+     "jsx": "react-jsx",
++    "jsxImportSource": "bun",
+     "allowJs": true,
+ 
+     // Bundler mode
+     "moduleResolution": "bundler",
++    "baseUrl": ".",
++    "paths": {
++      "bun/jsx-runtime": ["./bun/jsx-runtime.ts"],
++      "bun/jsx-dev-runtime": ["./bun/jsx-dev-runtime.ts"]
++    },
+     "allowImportingTsExtensions": true,
+     "verbatimModuleSyntax": true,
+     "noEmit": true,
+-- 
+2.43.0
+
