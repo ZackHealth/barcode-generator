@@ -96,7 +96,9 @@ function IndexPage({ batches }: { batches: BatchResult[] }) {
           throw new Error(await response.text());
         }
         const body = await response.json();
-        status && (status.textContent = \`Created \${body.batch.generated} label(s).\`);
+        if (status) {
+          status.textContent = "Created " + body.batch.generated + " label(s).";
+        }
         window.location.reload();
       } catch (error) {
         console.error(error);
