@@ -1,0 +1,42 @@
+[
+  {
+    "id": "batch-2025-11-07_09-14-17-161",
+    "clientCode": "DK010",
+    "panelCode": "APV13",
+    "requested": 42,
+    "generated": 26,
+    "outputDir": "/Users/andicretu/Zack Health/blood-sample-barcodes/output/barcodes",
+    "manifestPath": "/Users/andicretu/Zack Health/blood-sample-barcodes/output/barcodes/latest-batch.json",
+    "createdAt": "2025-11-07T09:14:17.161Z",
+    "pdfPath": "/Users/andicretu/Zack Health/blood-sample-barcodes/output/barcodes/batch-2025-11-07_09-14-17-161.pdf",
+    "csvPath": "/Users/andicretu/Zack Health/blood-sample-barcodes/output/barcodes/batch-2025-11-07_09-14-17-161.csv",
+    "manifestFiles": [
+      "DK010_ZH5S74NFX7.svg",
+      "DK010_Q83GXJFKPV.svg",
+      "DK010_N7HFTATAQV.svg",
+      "DK010_ZHBGVNERWX.svg",
+      "DK010_XQG46GSUHZ.svg",
+      "DK010_YFUHMN9QDY.svg",
+      "DK010_2H3NZ8RACJ.svg",
+      "DK010_A4CE97L7DT.svg",
+      "DK010_NDSMP2SQ2K.svg",
+      "DK010_CT7F6BU7MR.svg",
+      "DK010_WRMG3EU478.svg",
+      "DK010_D2P3SDBV42.svg",
+      "DK010_DYDKSX4QRL.svg",
+      "DK010_CSK4AXAQ8J.svg",
+      "DK010_YBG23JA32M.svg",
+      "DK010_UDQUH8UQAR.svg",
+      "DK010_VG48CKR8V7.svg",
+      "DK010_9P23CSEVYD.svg",
+      "DK010_BJQ78YPR6B.svg",
+      "DK010_KUEBS7TQ9H.svg",
+      "DK010_FH7E5HWYQY.svg",
+      "DK010_7GC6M65Z9C.svg",
+      "DK010_3WC5ZW8QHG.svg",
+      "DK010_WSE829TCLQ.svg",
+      "DK010_H3BJMGF3X2.svg",
+      "DK010_3EYLXNUBMU.svg"
+    ]
+  }
+]
