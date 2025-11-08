@@ -8,7 +8,6 @@ import path from "path";
 import { getBarcodeRasterSize } from "../logic/barCodeDimensions";
 import { getBarcodePhysicalDimensions } from "../logic/barCodeDimensions.ts"; // (îl lăsăm, chiar dacă nu-l mai folosim la dimensiuni)
 import type { PDFConfig } from "../logic/types";
-import { DEFAULT_LAYOUT, PAGE_SIZES } from "./pdfDefaults";
 import { createBarcodeCSVFile } from "./createBarcodeCsv";
 
 const { widthPx, heightPx } = getBarcodeRasterSize(300);
