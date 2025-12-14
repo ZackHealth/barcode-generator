@@ -1,0 +1,7 @@
+{
+  "/api/barcodes/runs/[runId]/file/route": "app/api/barcodes/runs/[runId]/file/route.js",
+  "/api/barcodes/runs/route": "app/api/barcodes/runs/route.js",
+  "/api/generate/route": "app/api/generate/route.js",
+  "/generator/page": "app/generator/page.js",
+  "/library/page": "app/library/page.js"
+}

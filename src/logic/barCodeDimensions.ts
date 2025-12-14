@@ -2,7 +2,7 @@
 
 // raw physical sizes in cm
 const LABEL_WIDTH_CM  = 8.5;
-const LABEL_HEIGHT_CM = 1.4;
+const LABEL_HEIGHT_CM = 1.5;
 
 // In your barcodeDimensions.ts, add these helpers:
 const CM_TO_IN = 1 / 2.54;
