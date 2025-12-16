@@ -116,7 +116,7 @@ export default function GeneratorPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600 }}>{new Date(r.createdAt).toLocaleString()}</div>
+                  <div style={{ fontWeight: 600 }}>{new Date(r.createdAt).toLocaleString("en-GB").replace(/\//g, "-")}</div>
                   <div style={{ opacity: 0.8, fontSize: 14 }}>
                     {r.countGenerated} codes • {r.template} • <span style={{ fontFamily: "monospace" }}>{r.runId}</span>
                   </div>
