@@ -6,7 +6,6 @@ import PDFDocument from "pdfkit";
 import sharp from "sharp";
 import path from "path";
 import { getBarcodeRasterSize } from "../logic/barCodeDimensions";
-import { getBarcodePhysicalDimensions } from "../logic/barCodeDimensions.ts"; // (îl lăsăm, chiar dacă nu-l mai folosim la dimensiuni)
 import type { PDFConfig } from "../logic/types";
 import { createBarcodeCSVFile } from "./createBarcodeCsv";
 
@@ -34,13 +33,46 @@ function applyTimestampPlaceholder(p: string, ts: string) {
   return p.includes("{timestamp}") ? p.replace("{timestamp}", ts) : p;
 }
 
-function parseClientAndSample(fileName: string): { clientCode: string; sampleID: string } | null {
+function parseClientAndSample(
+  fileName: string
+): { clientCode: string; sampleID: string } | null {
   const base = path.basename(fileName, ".svg");
   const idx = base.indexOf("_");
   if (idx <= 0 || idx === base.length - 1) return null;
   const clientCode = base.slice(0, idx);
   const sampleID = base.slice(idx + 1);
   return { clientCode, sampleID };
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Best-effort: if manifestPath exists, update manifest.json with pdfFile/csvFile
+ * (keeps other fields intact).
+ */
+async function updateManifestFiles(
+  manifestPath: string,
+  updates: { pdfFile?: string | null; csvFile?: string | null }
+) {
+  try {
+    const raw = await fs.readFile(manifestPath, "utf-8");
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+
+    if (typeof updates.pdfFile !== "undefined") parsed.pdfFile = updates.pdfFile;
+    if (typeof updates.csvFile !== "undefined") parsed.csvFile = updates.csvFile;
+
+    await fs.writeFile(manifestPath, JSON.stringify(parsed, null, 2), "utf-8");
+    console.log(`🧾 Updated manifest with output files: ${manifestPath}`);
+  } catch (err) {
+    console.warn("⚠️ Could not update manifest with pdf/csv file names:", err);
+  }
 }
 
 // --- Main ------------------------------------------------------------------
@@ -54,23 +86,32 @@ export async function createBarcodePDF(config: PDFConfig) {
 
   if (config.svgFiles && config.svgFiles.length > 0) {
     console.log("📄 Using explicit svgFiles passed in PDFConfig");
-    svgFiles = config.svgFiles.map(f => (path.isAbsolute(f) ? f : path.join(config.svgDirectory, f)));
+    svgFiles = config.svgFiles.map((f) =>
+      path.isAbsolute(f) ? f : path.join(config.svgDirectory, f)
+    );
   } else if (config.manifestPath) {
     console.log(`🧾 Reading manifest: ${config.manifestPath}`);
     const raw = await fs.readFile(config.manifestPath, "utf-8");
     const parsed = JSON.parse(raw) as { files?: string[]; createdAt?: string };
+
     const files = parsed.files ?? [];
     manifestCreatedAt = parsed.createdAt;
+
     if (files.length === 0) {
       console.warn("⚠️ Manifest has no files. Nothing to print.");
       return;
     }
-    svgFiles = files.map(f => path.join(config.svgDirectory, f));
+
+    svgFiles = files.map((f) => path.join(config.svgDirectory, f));
     console.log(`📂 Manifest lists ${svgFiles.length} file(s).`);
   } else {
-    console.log("↩️ No manifest/svgFiles provided, falling back to ALL .svg in directory");
-    const all = (await fs.readdir(config.svgDirectory)).filter(f => f.endsWith(".svg"));
-    svgFiles = all.map(f => path.join(config.svgDirectory, f));
+    console.log(
+      "↩️ No manifest/svgFiles provided, falling back to ALL .svg in directory"
+    );
+    const all = (await fs.readdir(config.svgDirectory)).filter((f) =>
+      f.endsWith(".svg")
+    );
+    svgFiles = all.map((f) => path.join(config.svgDirectory, f));
   }
 
   if (svgFiles.length === 0) {
@@ -106,15 +147,21 @@ export async function createBarcodePDF(config: PDFConfig) {
   const labelRadius = mmToPt(1.5);
 
   // Gaps:
-  const gapAcross = mmToPt(5);   // între coloane
-  const gapAround = mmToPt(5);   // între rânduri
+  const gapAcross = mmToPt(5); // între coloane
+  const gapAround = mmToPt(5); // între rânduri
 
   // Grid:
   const cols = 2;
   const rows = 13; // 13 pe coloană (în total 26 / pagină)
 
-  console.log(`🗒 AAR026 grid: ${cols}×${rows}, label ${labelW.toFixed(2)}×${labelH.toFixed(2)} pt`);
-  console.log(`   Margins T/R/B/L: ${marginTop}/${marginRight}/${marginBottom}/${marginLeft} pt`);
+  console.log(
+    `🗒 AAR026 grid: ${cols}×${rows}, label ${labelW.toFixed(
+      2
+    )}×${labelH.toFixed(2)} pt`
+  );
+  console.log(
+    `   Margins T/R/B/L: ${marginTop}/${marginRight}/${marginBottom}/${marginLeft} pt`
+  );
 
   console.log(`📂 Files to print: ${svgFiles.length}`);
   console.log(`🕒 Using timestamp: ${timestamp}`);
@@ -123,7 +170,7 @@ export async function createBarcodePDF(config: PDFConfig) {
   // --- 2) Convert SVG → 300 DPI PNG ---
   console.log(`🔢 Raster target: ${widthPx}×${heightPx} px`);
   const images = await Promise.all(
-    svgFiles.map(async fullPath => {
+    svgFiles.map(async (fullPath) => {
       const file = path.basename(fullPath);
       console.log(`🔄 Converting ${file} at 300 DPI`);
       const svgBuf = await fs.readFile(fullPath);
@@ -146,7 +193,7 @@ export async function createBarcodePDF(config: PDFConfig) {
   doc.on("pageAdded", () => console.log("📄 pageAdded event"));
   doc.on("end", () => console.log("🏁 doc end event"));
   stream.on("close", () => console.log("🔒 stream close event"));
-  stream.on("error", err => console.error("❌ stream error:", err));
+  stream.on("error", (err) => console.error("❌ stream error:", err));
 
   // --- 4) Exact placement loop (left→right, top→bottom) --------------------
   let idx = 0;
@@ -169,7 +216,11 @@ export async function createBarcodePDF(config: PDFConfig) {
         const y = startY + r * (labelH + gapAround);
 
         const image = images[idx]!;
-        console.log(`   📍 Placing image ${idx + 1} (${image.name}) at (${x.toFixed(1)},${y.toFixed(1)})`);
+        console.log(
+          `   📍 Placing image ${idx + 1} (${image.name}) at (${x.toFixed(
+            1
+          )},${y.toFixed(1)})`
+        );
 
         // opțional: ghid cu colțuri rotunjite (vizual/debug)
         doc
@@ -205,11 +256,11 @@ export async function createBarcodePDF(config: PDFConfig) {
       console.log("🔒 stream emitted close");
       resolve();
     });
-    stream.on("error", err => {
+    stream.on("error", (err) => {
       console.error("❌ stream error during finalize:", err);
       reject(err);
     });
-    doc.on("error", err => {
+    doc.on("error", (err) => {
       console.error("❌ doc error during finalize:", err);
       reject(err);
     });
@@ -217,18 +268,29 @@ export async function createBarcodePDF(config: PDFConfig) {
 
   console.log(`🎉 PDF saved to ${outputPdfPath}`);
 
+  // ✅ If we used a manifest, update it with the produced PDF file name
+  if (config.manifestPath) {
+    await updateManifestFiles(config.manifestPath, {
+      pdfFile: path.basename(outputPdfPath),
+    });
+  }
+
   // --- 6) (Optional) Also write CSV for the same batch ---------------------
   if ((config as any).writeCsv) {
     const panelCode = (config as any).panelCode as string | undefined;
     if (!panelCode) {
-      console.warn("⚠️ writeCsv requested, but panelCode is missing in PDFConfig. Skipping CSV.");
+      console.warn(
+        "⚠️ writeCsv requested, but panelCode is missing in PDFConfig. Skipping CSV."
+      );
       return;
     }
 
     const barcodes = svgFiles
-      .map(f => path.basename(f))
+      .map((f) => path.basename(f))
       .map(parseClientAndSample)
-      .filter((x): x is { clientCode: string; sampleID: string } => !!x)
+      .filter(
+        (x): x is { clientCode: string; sampleID: string } => !!x
+      )
       .map(({ clientCode, sampleID }) => ({ clientCode, sampleID }));
 
     if (barcodes.length === 0) {
@@ -236,21 +298,48 @@ export async function createBarcodePDF(config: PDFConfig) {
       return;
     }
 
-    const outputDir = config.svgDirectory;
+    // call createBarcodeCSVFile into the directory of outputCsvPath and then:
+    // - if outputCsvPath already exists afterwards, we don't overwrite it with our fallback
+    // - otherwise, we write outputCsvPath as a deterministic fallback
+    const outputDirForCsv = path.dirname(outputCsvPath);
     const labelCreationDate = timestamp.replace("_", " ");
 
     console.log("🧾 Creating CSV for the same batch...");
-    await createBarcodeCSVFile(barcodes as any, outputDir, panelCode, labelCreationDate);
+    await createBarcodeCSVFile(
+      barcodes as any,
+      outputDirForCsv,
+      panelCode,
+      labelCreationDate
+    );
 
-    try {
-      const lines = [
-        "clientCode,sampleID,panelCode,createdAt",
-        ...barcodes.map(b => `${b.clientCode},${b.sampleID},${panelCode},${labelCreationDate}`),
-      ];
-      await fs.writeFile(outputCsvPath, lines.join("\n"), "utf-8");
-      console.log(`🧾 CSV saved to ${outputCsvPath}`);
-    } catch (err) {
-      console.warn("⚠️ Could not write timestamped CSV file next to the PDF:", err);
+    const alreadyThere = await fileExists(outputCsvPath);
+    if (!alreadyThere) {
+      try {
+        const lines = [
+          "clientCode,sampleID,panelCode,createdAt",
+          ...barcodes.map(
+            (b) => `${b.clientCode},${b.sampleID},${panelCode},${labelCreationDate}`
+          ),
+        ];
+        await fs.writeFile(outputCsvPath, lines.join("\n"), "utf-8");
+        console.log(`🧾 CSV saved to ${outputCsvPath}`);
+      } catch (err) {
+        console.warn(
+          "⚠️ Could not write timestamped CSV file next to the PDF:",
+          err
+        );
+      }
+    } else {
+      console.log(
+        `🧾 CSV already exists at ${outputCsvPath} (skipping fallback write)`
+      );
+    }
+
+    // If we used a manifest, update it with the produced CSV file name
+    if (config.manifestPath) {
+      await updateManifestFiles(config.manifestPath, {
+        csvFile: path.basename(outputCsvPath),
+      });
     }
   }
 }
