@@ -45,11 +45,13 @@ export async function GET(
     const filenameFromManifest =
       kind === "pdf" ? manifest.pdfFile : manifest.csvFile;
 
-    // If manifest hasn't been updated yet, fall back to conventional names
+    // fallback
     const fallbackName = kind === "pdf" ? "labels.pdf" : "labels.csv";
     const filename = filenameFromManifest || fallbackName;
 
-    const filePath = path.join(runDir, filename);
+    // ✅ sanitize
+    const safeFilename = path.basename(filename);
+    const filePath = path.join(runDir, safeFilename);
 
     // Ensure file exists
     await fs.access(filePath);
@@ -62,9 +64,11 @@ export async function GET(
     return new NextResponse(stream as any, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `inline; filename="${filename}"`,
+        // ✅ force download name on click
+        "Content-Disposition": `attachment; filename="${safeFilename}"`,
       },
     });
+
   } catch (err) {
     console.error("❌ /api/barcodes/runs/[runId]/file error:", err);
     return NextResponse.json(

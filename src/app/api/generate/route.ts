@@ -1,3 +1,4 @@
+//blood-sample-barcodes/src/app/api/generate/route.ts
 import path from "path";
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
@@ -44,12 +45,16 @@ export async function POST(req: Request) {
     await createBarcodePDF({
       svgDirectory: run.runDir,
       manifestPath: run.manifestPath,
-      outputPath: path.join(run.runDir, "labels.pdf"),
-      // proprietate custom folosită în pdfGenerator.ts
+
+      // ✅ timestamped file name
+      outputPath: path.join(run.runDir, "labels-{timestamp}.pdf"),
+
       ...( {
         writeCsv: true,
         panelCode: run.panelCode,
-        csvOutputPath: path.join(run.runDir, "labels.csv"),
+
+        // ✅ timestamped file name
+        csvOutputPath: path.join(run.runDir, "labels-{timestamp}.csv"),
       } as any ),
       layout: {
         pageSize: "A4",
@@ -58,13 +63,14 @@ export async function POST(req: Request) {
       },
     } as any);
 
+
     // 3) Return card data (linkurile vor funcționa după ce facem endpoint-ul /file)
     return NextResponse.json({
       runId: run.runId,
       createdAt: run.createdAt,
       template: run.template,
       countRequested: run.countRequested,
-      countGenerated: run.countGenerated,
+      countGenerated: run.countGenerated ?? 0,
       runDir: run.runDir, // util pentru debug local
       pdfUrl: `/api/barcodes/runs/${run.runId}/file?kind=pdf`,
       csvUrl: `/api/barcodes/runs/${run.runId}/file?kind=csv`,
