@@ -455,7 +455,7 @@ async function downloadFile(batch: BatchRecord, kind: string) {
         "Content-Type": file.type || "application/octet-stream",
         "Content-Disposition": `attachment; filename=\"${name}\"`,
       },
-    });
+    });^
   } catch (error) {
     return new Response("File not available", { status: 404 });
   }
