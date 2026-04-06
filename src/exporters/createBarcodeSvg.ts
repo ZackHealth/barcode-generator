@@ -5,7 +5,7 @@ import { getBarcodePhysicalDimensions } from "../logic/barCodeDimensions";
 
 
 const LABEL_WIDTH_CM = Math.round(8.5 * 37.8); // 8.5cm to pixels
-const LABEL_HEIGHT_CM = Math.round(1.4 * 37.8); // 1.4cm to pixels
+const LABEL_HEIGHT_CM = Math.round(1.5 * 37.8); // 1.4cm to pixels
 
 export function createBarcodeSVG(
   clientCode: string,
