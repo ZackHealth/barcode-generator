@@ -20,7 +20,7 @@ export function createBarcodeSVG(
   JsBarcode(canvas, barcodeText, {
     format: "CODE128",
     width: 2,
-    height: 50,
+    height: 48,
     displayValue: false,
     margin: 5
 
@@ -31,7 +31,7 @@ export function createBarcodeSVG(
   const svgDoc = impl.createDocument("http://www.w3.org/2000/svg", "svg", null);
   const svgRoot = svgDoc.documentElement!;
   
-  // Label dimensions: 8.5cm x 1.4cm (convert to pixels, assuming 96dpi)
+  // Label dimensions: 8.5cm x 1.5cm (convert to pixels, assuming 96dpi)
 
   const background = svgDoc.createElement("rect"); //add white background
   const { widthPx, heightPx } = getBarcodePhysicalDimensions();
