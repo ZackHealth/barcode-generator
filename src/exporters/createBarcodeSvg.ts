@@ -4,9 +4,6 @@ import { DOMImplementation, XMLSerializer } from "@xmldom/xmldom";
 import { getBarcodePhysicalDimensions } from "../logic/barCodeDimensions";
 
 
-const LABEL_WIDTH_CM = Math.round(8.5 * 37.8); // 8.5cm to pixels
-const LABEL_HEIGHT_CM = Math.round(1.5 * 37.8); // 1.4cm to pixels
-
 export function createBarcodeSVG(
   clientCode: string,
   sampleID: string,
@@ -25,7 +22,7 @@ export function createBarcodeSVG(
     width: 2,
     height: 50,
     displayValue: false,
-    margin: 0
+    margin: 5
 
   });
   
@@ -60,15 +57,14 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   const image = svgDoc.createElement("image");
   image.setAttribute("x", "5");
   image.setAttribute("y", "5");
-  image.setAttribute("width", Math.round(LABEL_WIDTH_CM * 0.7).toString());
-  image.setAttribute("height", "30");
+  image.setAttribute("width", Math.round(widthPx * 0.7).toString());  image.setAttribute("height", "30");
   image.setAttribute("href", barcodeDataURL);
   svgRoot.appendChild(image);
   
   // Add text elements for the data
   const barcodeText1 = svgDoc.createElement("text");
   barcodeText1.setAttribute("x", "235");
-  barcodeText1.setAttribute("y", (LABEL_HEIGHT_CM - 40).toString());
+  barcodeText1.setAttribute("y", (heightPx - 40).toString());
   barcodeText1.setAttribute("font-family", "Arial");
   barcodeText1.setAttribute("font-size", "9");
   barcodeText1.textContent = `Panel Code: ${panelCode}`;
@@ -76,15 +72,14 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   
   const barcodeText2 = svgDoc.createElement("text");
   barcodeText2.setAttribute("x", "235");
-  barcodeText2.setAttribute("y", (LABEL_HEIGHT_CM - 30).toString());
-  barcodeText2.setAttribute("font-family", "Arial");
+  barcodeText2.setAttribute("y", (heightPx - 30).toString());  barcodeText2.setAttribute("font-family", "Arial");
   barcodeText2.setAttribute("font-size", "9");
   barcodeText2.textContent = `Sampling Date: `;
   svgRoot.appendChild(barcodeText2);
   
   const barcodeText3 = svgDoc.createElement("text");
   barcodeText3.setAttribute("x", "90");
-  barcodeText3.setAttribute("y", (LABEL_HEIGHT_CM - 6).toString());
+  barcodeText3.setAttribute("y", (heightPx - 6).toString());
   barcodeText3.setAttribute("font-family", "Arial");
   barcodeText3.setAttribute("font-size", "9");
   barcodeText3.textContent = barcodeText;
