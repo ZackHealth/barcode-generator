@@ -36,6 +36,7 @@ export function createBarcodeSVG(
   const background = svgDoc.createElement("rect"); //add white background
   const { widthPx, heightPx } = getBarcodePhysicalDimensions();
   const pad = 2;
+  const OFFSET_Y = -3; 
 
   // Update the root to include padding in its viewBox:
 svgRoot.setAttribute("viewBox", `0 0 ${widthPx} ${heightPx}`);
@@ -56,7 +57,7 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   // Add the barcode image
   const image = svgDoc.createElement("image");
   image.setAttribute("x", "5");
-  image.setAttribute("y", "5");
+  image.setAttribute("y", (5 + OFFSET_Y).toString());  
   image.setAttribute("width", Math.round(widthPx * 0.7).toString());  image.setAttribute("height", "30");
   image.setAttribute("href", barcodeDataURL);
   svgRoot.appendChild(image);
@@ -64,7 +65,7 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   // Add text elements for the data
   const barcodeText1 = svgDoc.createElement("text");
   barcodeText1.setAttribute("x", "235");
-  barcodeText1.setAttribute("y", (heightPx - 40).toString());
+  barcodeText1.setAttribute("y", (heightPx - 40 + OFFSET_Y).toString());
   barcodeText1.setAttribute("font-family", "Arial");
   barcodeText1.setAttribute("font-size", "9");
   barcodeText1.textContent = `Panel Code: ${panelCode}`;
@@ -72,14 +73,15 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   
   const barcodeText2 = svgDoc.createElement("text");
   barcodeText2.setAttribute("x", "235");
-  barcodeText2.setAttribute("y", (heightPx - 30).toString());  barcodeText2.setAttribute("font-family", "Arial");
+  barcodeText2.setAttribute("y", (heightPx - 30 + OFFSET_Y).toString());
+  barcodeText2.setAttribute("font-family", "Arial");
   barcodeText2.setAttribute("font-size", "9");
   barcodeText2.textContent = `Sampling Date: `;
   svgRoot.appendChild(barcodeText2);
   
   const barcodeText3 = svgDoc.createElement("text");
   barcodeText3.setAttribute("x", "90");
-  barcodeText3.setAttribute("y", (heightPx - 6).toString());
+  barcodeText3.setAttribute("y", (heightPx - 6 + OFFSET_Y).toString());
   barcodeText3.setAttribute("font-family", "Arial");
   barcodeText3.setAttribute("font-size", "9");
   barcodeText3.textContent = barcodeText;
