@@ -57,7 +57,7 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   // Add the barcode image
   const image = svgDoc.createElement("image");
   image.setAttribute("x", "5");
-  image.setAttribute("y", (5 + OFFSET_Y).toString());  
+  image.setAttribute("y", (10 + OFFSET_Y).toString());  
   image.setAttribute("width", Math.round(widthPx * 0.7).toString());  image.setAttribute("height", "30");
   image.setAttribute("href", barcodeDataURL);
   svgRoot.appendChild(image);
