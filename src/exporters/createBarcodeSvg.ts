@@ -64,16 +64,16 @@ svgRoot.insertBefore(background, svgRoot.firstChild);
   
   // Add text elements for the data
   const barcodeText1 = svgDoc.createElement("text");
-  barcodeText1.setAttribute("x", "235");
-  barcodeText1.setAttribute("y", (heightPx - 40 + OFFSET_Y).toString());
+  barcodeText1.setAttribute("x", "232");
+  barcodeText1.setAttribute("y", (heightPx - 38 + OFFSET_Y).toString());
   barcodeText1.setAttribute("font-family", "Arial");
   barcodeText1.setAttribute("font-size", "9");
   barcodeText1.textContent = `Panel Code: ${panelCode}`;
   svgRoot.appendChild(barcodeText1);
   
   const barcodeText2 = svgDoc.createElement("text");
-  barcodeText2.setAttribute("x", "235");
-  barcodeText2.setAttribute("y", (heightPx - 30 + OFFSET_Y).toString());
+  barcodeText2.setAttribute("x", "232");
+  barcodeText2.setAttribute("y", (heightPx - 28 + OFFSET_Y).toString());
   barcodeText2.setAttribute("font-family", "Arial");
   barcodeText2.setAttribute("font-size", "9");
   barcodeText2.textContent = `Sampling Date: `;
