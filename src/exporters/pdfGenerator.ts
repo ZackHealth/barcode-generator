@@ -2,6 +2,7 @@
 
 import fs from "fs/promises";
 import { createWriteStream } from "fs";
+import { finished } from "node:stream/promises";
 import PDFDocument from "pdfkit";
 import sharp from "sharp";
 import path from "path";
@@ -186,6 +187,8 @@ export async function createBarcodePDF(config: PDFConfig) {
   // --- 3) Create PDF & pipe ---
   const doc = new PDFDocument({ size: [pageW, pageH], margin: 0 });
   const stream = createWriteStream(outputPdfPath);
+  const outputFinished = finished(stream);
+  doc.once("error", error => stream.destroy(error));
   console.log("📤 Piping PDFDocument to file stream");
   doc.pipe(stream);
 
@@ -247,24 +250,9 @@ export async function createBarcodePDF(config: PDFConfig) {
   doc.end();
 
   console.log("⏳ Waiting for PDF to finish...");
-  await new Promise<void>((resolve, reject) => {
-    doc.on("end", () => {
-      console.log("🏁 doc emitted end");
-      resolve();
-    });
-    stream.on("close", () => {
-      console.log("🔒 stream emitted close");
-      resolve();
-    });
-    stream.on("error", (err) => {
-      console.error("❌ stream error during finalize:", err);
-      reject(err);
-    });
-    doc.on("error", (err) => {
-      console.error("❌ doc error during finalize:", err);
-      reject(err);
-    });
-  });
+  // The readable document can end while its destination is still flushing.
+  // Downloads and manifest publication must wait for the writable file to finish.
+  await outputFinished;
 
   console.log(`🎉 PDF saved to ${outputPdfPath}`);
 
