@@ -16,6 +16,9 @@ export interface PDFLayout {
 }
 
 export interface PDFConfig {
+  writeCsv?: boolean;
+  panelCode?: string;
+  csvOutputPath?: string;
   // Where the SVGs live (kept for backward compatibility / path resolving)
   svgDirectory: string;
 

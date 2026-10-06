@@ -8,7 +8,11 @@
     "build": "bun --bun next build --webpack",
     "start": "bun --bun next start",
     "typecheck": "bunx --bun tsc --noEmit --incremental false",
-    "test:production": "bun test checks/production.test.js"
+    "test:production": "bun test checks/production.test.js",
+    "batch": "bun src/batches/cli.ts generate",
+    "batch:verify": "bun src/batches/cli.ts verify",
+    "batch:resume": "bun src/batches/cli.ts resume",
+    "test:bulk": "bun test checks/bulk.test.js"
   },
   "dependencies": {
     "next": "^16.0.10",

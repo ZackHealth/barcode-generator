@@ -27,7 +27,11 @@ fs.writeFile = async (file, ...args) => {
 };
 
 try {
-  if (options.reserveOnly) {
+  if (options.batch) {
+    const { generateBatch } = await import("../../src/batches/artifacts");
+    const result = await generateBatch(options.batch);
+    console.log(JSON.stringify({ ok: true, runDir: result.runDir }));
+  } else if (options.reserveOnly) {
     const ids = await reserveSampleIDs(1, () => options.id);
     console.log(JSON.stringify({ ok: true, ids }));
   } else {

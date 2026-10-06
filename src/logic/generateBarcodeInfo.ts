@@ -74,17 +74,11 @@ export async function generateBarcodeRun(
 ): Promise<BarcodeRun> {
   const { clientCode, panelCode, count, outputDir } = config;
   validateClientCode(config);
-  if (!Number.isSafeInteger(count) || count < 1) {
-    throw new Error("Barcode count must be a positive integer.");
+  if (!Number.isSafeInteger(count) || count < 1 || count > 520) {
+    throw new Error("Barcode count must be an integer between 1 and 520.");
   }
-
-  // 🔒 Clamp by grid (AAR026: 2 cols × 13 rows = 26 labels/page)
-  const COLS = 2;
-  const ROWS_PER_COL = 13;
-  const PER_PAGE = COLS * ROWS_PER_COL;
-
-  const pages = 1; // one page for now
-  const effectiveCount = Math.min(count, PER_PAGE * pages);
+  // The exporter lays out 26 labels per page. Reserve the full requested batch.
+  const effectiveCount = count;
 
   // ✅ Create a per-run folder
   const runId = generateRunId();

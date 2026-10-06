@@ -16,7 +16,8 @@ union of all IDs, never by choosing one side of a Git conflict.
 
 After each real generation, verify the CSV IDs, PDF labels and run manifest,
 then commit and push the expanded ledger before distributing or using labels.
-Keep downloaded exports in Drive with the run evidence. Merge the reservation
+The [automated batch SOP](batch-sop.md) handles these steps and keeps exports
+locally, without Drive or printing. Merge the reservation
 update into main before another machine or fresh checkout is used. Failed runs
 also require preserving and committing any added reservations.
 
@@ -42,7 +43,9 @@ the central `reserveSampleIDs` operation before creating label files:
 
 If saving fails, no labels are written. If label/PDF/CSV generation fails after
 reservation, keep all reserved IDs permanently, even if no usable file remains.
-Deleting an output folder never releases its IDs. Locks cover reservations;
+Deleting an output folder never releases its IDs. The automated workflow also holds a `.workflow.lock` through publication;
+central reservations reject other callers while this lock exists.
+Locks cover reservations;
 artifact writing can overlap safely because its IDs are already reserved.
 
 Tests and CI verify Linux/WSL behavior, including forced process termination
@@ -53,7 +56,8 @@ intended ledger and output folder.
 
 ## A lock or failed run blocks generation
 
-An existing `src/used-sample-ids.json.lock` stops new reservations. A crashed
+An existing `src/used-sample-ids.json.lock` stops new reservations. A stale
+`.workflow.lock` also blocks generation and needs the same recovery discipline. A crashed
 process deliberately leaves its lock behind; the app never automatically
 reclaims it based on a PID or elapsed time.
 
@@ -76,9 +80,11 @@ retention (including every ID in the PR base commit), deliberate collisions,
 500 reservations in a temporary ledger,
 overlapping processes, locks, flush/rename failures, forced crashes and label
 write failures. They check that each SVG's ID is saved before that SVG is written.
-They do not prove physical print quality or correctness of the legacy CLI
-export path. Real 250–500-label generation and PDF/CSV reconciliation remain
-a separate operation; the current layout still caps each run at 26 labels.
+They do not prove physical print quality. `bun run test:bulk` generates ten
+pages with a temporary ledger and independently decodes all 260 PDF barcodes
+against the CSV, manifest and before/after ledger snapshots. The automated
+CLI supports up to 520 labels; its publication and failure recovery are covered
+by integration tests using temporary Git repositories.
 
 After `bun run build`, `bun run test:production` starts the built Next.js server
 under Bun against a temporary ledger. It verifies API reservation, CSV IDs and

@@ -29,5 +29,7 @@ jobs:
         run: bun run build
       - name: Production Bun API and exports
         run: bun run test:production
+      - name: Independently decode ten PDF pages
+        run: bun run test:bulk
       - name: Verify tests and build did not alter real reservations
         run: git diff --exit-code -- src/used-sample-ids.json

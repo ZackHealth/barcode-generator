@@ -2,7 +2,16 @@
 
 Local Next.js app for generating sample labels and downloading PDFs and CSVs.
 The authoritative reservation ledger is `src/used-sample-ids.json`.
-Read [ledger operation and recovery](docs/ledger-safety.md) before generating real labels.
+Use the [batch SOP](docs/batch-sop.md) for real generations and read
+[ledger operation and recovery](docs/ledger-safety.md) before recovery.
+
+```bash
+bun run batch --pages 10 --client DK010 --panel APV13
+```
+
+This reserves 260 IDs, creates and independently verifies the PDF and CSV,
+then commits, pushes and merges the reservation update after CI passes.
+Outputs stay local; the command does not access Drive or print anything.
 
 ## Run locally
 
@@ -26,14 +35,14 @@ bun run test
 bun run typecheck
 bun run build
 bun run test:production
+bun run test:bulk
 ```
 
 ## Current batch limits
 
-The AAR026 layout currently generates at most 26 labels per run, even when a
-larger count is requested. Multi-page generation needs separate work before a
-250–500-label batch can be requested in one run. The legacy CLI's export step
-still references `latest-batch.json`; use the web app for current run exports.
+The automated CLI supports 1–20 pages (26–520 labels). It reserves the whole
+batch before producing any output. The browser is a 26-label shortcut.
+See the SOP for recovery and `batch:resume`; the legacy demo CLI is disabled.
 
 `bun run start` serves the production build. Next.js scripts use the explicit
 `bun --bun` runtime flag, following the [Bun Next.js guide](https://bun.sh/guides/ecosystem/nextjs).

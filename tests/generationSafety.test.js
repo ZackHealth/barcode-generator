@@ -41,6 +41,13 @@ test("every SVG ID has already been persisted, and the run manifest matches the 
   expect(manifest.files.map(file => file.split("_")[1].replace(".svg", ""))).toEqual(reserved.slice(2));
 });
 
+test("a ten-page request reserves and generates all 260 IDs", async () => {
+  const result = await run({ count: 260 });
+  expect(result.ok).toBe(true);
+  expect(result.count).toBe(260);
+  expect(await ids()).toHaveLength(262);
+});
+
 test("a label-write failure burns the entire reserved batch instead of releasing IDs", async () => {
   const result = await run({ failSVG: true });
   expect(result.ok).toBe(false);
@@ -61,7 +68,7 @@ test("invalid ledger stops before creating output files or directories", async (
 });
 
 test.each([
-  { count: 0 }, { count: -1 }, { count: 1.5 },
+  { count: 0 }, { count: -1 }, { count: 1.5 }, { count: 521 },
   { clientCode: "../escape" }, { panelCode: "APV13,extra" },
 ])("invalid generation settings do not reserve IDs or create outputs: %j", async options => {
   const result = await run(options);
@@ -97,3 +104,11 @@ test.each(["before-rename", "after-rename"])("process crash %s retains a complet
     await child.exited;
   }
 }, 10_000);
+
+test.each(['{"token":"another-owner"}', '{broken'])('a foreign or corrupt workflow lock blocks every reservation',async contents=>{
+ await fs.writeFile(ledger+'.workflow.lock',contents);
+ const result=await run({reserveOnly:true,id:'NEWABCDE23'});
+ expect(result.ok).toBe(false);expect(await ids()).toEqual(initial);
+ expect(await fs.readFile(ledger+'.workflow.lock','utf8')).toBe(contents);
+ expect(await fs.exists(ledger+'.lock')).toBe(false);
+});

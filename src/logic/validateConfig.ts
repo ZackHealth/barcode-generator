@@ -3,7 +3,7 @@ import type { BarcodeConfig } from "../logic/types";
 
 // Ensure alphanumeric characters only
 export function validateAlphaNumeric(input: string): boolean {
-    return /^[A-Za-z0-9]+$/.test(input);
+    return typeof input === "string" && /^[A-Za-z0-9]+$/.test(input);
 }
 
   // Validate clientCode and panelCode
