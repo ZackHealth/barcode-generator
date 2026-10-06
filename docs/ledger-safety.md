@@ -79,3 +79,8 @@ write failures. They check that each SVG's ID is saved before that SVG is writte
 They do not prove physical print quality or correctness of the legacy CLI
 export path. Real 250–500-label generation and PDF/CSV reconciliation remain
 a separate operation; the current layout still caps each run at 26 labels.
+
+After `bun run build`, `bun run test:production` starts the built Next.js server
+under Bun against a temporary ledger. It verifies API reservation, CSV IDs and
+metadata, the PDF download and its manifest, and rejection of a corrupt ledger.
+It preserves the real ledger and deletes temporary outputs when finished.
