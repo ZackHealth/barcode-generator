@@ -75,6 +75,14 @@ export async function reserveSampleIDs(
     throw new Error(`Cannot acquire ledger lock ${lockPath}. Another run may be active; inspect the lock before retrying.`, { cause });
   }
   try {
+    try {
+      const workflow = JSON.parse(await fs.readFile(`${ledgerPath}.workflow.lock`, "utf8"));
+      if (!workflow.token || workflow.token !== process.env.BARCODE_WORKFLOW_TOKEN) {
+        throw new Error("An automated batch workflow owns this ledger; wait for it to finish.");
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
     await lock.writeFile(JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }) + "\n");
     const usedIDs = await loadUsedSampleIDs(ledgerPath);
     const reserved: string[] = [];
