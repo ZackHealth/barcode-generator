@@ -1,0 +1,30 @@
+{
+  "runId": "20261006-155057094-fcdc01-10pages",
+  "clientCode": "DK010",
+  "panelCode": "APV13",
+  "pages": 10,
+  "labelsPerPage": 26,
+  "csvRows": 260,
+  "uniqueIDs": 260,
+  "decodedPdfBarcodes": 260,
+  "pdfMatchesCsvInOrder": true,
+  "ledgerBeforeCount": 3415,
+  "ledgerAfterCount": 3675,
+  "previousIDsPreserved": true,
+  "historicalOverlap": 0,
+  "pdfFile": "labels-2026-10-06_17-50-57.pdf",
+  "csvFile": "labels-2026-10-06_17-50-57.csv",
+  "sha256": {
+    "labels-2026-10-06_17-50-57.pdf": "db8db74dbe90a704bce4f3ee4e36ac5735d6fb0c20cf4303d4b3564246b8bd30",
+    "labels-2026-10-06_17-50-57.csv": "39ac5a777edde2546f0856b6ecae82c8664146971689654cc1c010e0db03032a"
+  },
+  "verification": "Every PDF label rendered at 300 DPI and decoded independently as CODE128; values match CSV, manifest and newly reserved IDs.",
+  "tools": {
+    "pymupdf": "1.28.2",
+    "zxingCpp": "3.1.1"
+  },
+  "printInstructions": "Print A4 at actual size / 100%, without fit-to-page scaling. Physical printer alignment is not verified.",
+  "baseCommit": "dadca0ae25fd48f1da64ec7837319621b1996b50",
+  "ledgerSha256Before": "8bcad14ce3bcbc9618213112ea87388fd3ecd7e6580266fc2e81ae4281151515",
+  "ledgerSha256After": "767ea2a5e5c8ed1c7e8b1330312a2f43e22bb9f9196b04c7c4791af78d7defa1"
+}
