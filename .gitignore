@@ -38,3 +38,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # generated runs (pdf/csv/svg + manifests)
 src/output/
+
+# Local reservation lock and interrupted atomic-write staging files
+src/used-sample-ids.json.lock
+src/.used-sample-ids.json.*.tmp
