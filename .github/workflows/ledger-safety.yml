@@ -3,7 +3,6 @@ name: Ledger safety
 on:
   pull_request:
   push:
-    branches: [main]
 
 permissions:
   contents: read
