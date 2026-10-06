@@ -3,9 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "test": "bun test tests",
+    "dev": "bun --bun next dev",
+    "build": "bun --bun next build --webpack",
+    "start": "bun --bun next start",
+    "typecheck": "bunx --bun tsc --noEmit --incremental false",
+    "test:production": "bun test checks/production.test.js"
   },
   "dependencies": {
     "next": "^16.0.10",
@@ -22,5 +25,10 @@
     "@types/react": "^19",
     "@types/pdfkit": "^0.13.9",
     "typescript": "^5"
-  }
+  },
+  "packageManager": "bun@1.3.14",
+  "trustedDependencies": [
+    "canvas",
+    "sharp"
+  ]
 }

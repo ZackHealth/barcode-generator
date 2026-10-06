@@ -5,7 +5,8 @@ import path from "path";
 import crypto from "crypto";
 
 import { createBarcodeSVG } from "../exporters/createBarcodeSvg";
-import { loadUsedSampleIDs, saveUsedSampleIDs } from "./sampleIDTracker";
+import { reserveSampleIDs } from "./sampleIDTracker";
+import { validateClientCode } from "./validateConfig";
 import type { BarcodeConfig } from "../logic/types";
 
 function generateRandomID(length = 10): string {
@@ -36,24 +37,6 @@ function generateRunId(): string {
   const ss = pad(d.getSeconds());
   const rand = crypto.randomBytes(2).toString("hex"); // 4 chars
   return `${YYYY}${MM}${DD}-${hh}${mm}${ss}-${rand}`;
-}
-
-// Simple lock to prevent parallel runs from corrupting used-sample-ids.json writes.
-// (Works well for single-machine / single-process workflows.)
-const LOCK_PATH = path.resolve("used-sample-ids.lock");
-
-async function acquireLock(): Promise<void> {
-  // 'wx' => create exclusively; fails if exists
-  const handle = await fs.open(LOCK_PATH, "wx");
-  await handle.close();
-}
-
-async function releaseLock(): Promise<void> {
-  try {
-    await fs.unlink(LOCK_PATH);
-  } catch {
-    // ignore
-  }
 }
 
 export class BarcodeInfo {
@@ -90,6 +73,10 @@ export async function generateBarcodeRun(
   config: BarcodeConfig
 ): Promise<BarcodeRun> {
   const { clientCode, panelCode, count, outputDir } = config;
+  validateClientCode(config);
+  if (!Number.isSafeInteger(count) || count < 1) {
+    throw new Error("Barcode count must be a positive integer.");
+  }
 
   // 🔒 Clamp by grid (AAR026: 2 cols × 13 rows = 26 labels/page)
   const COLS = 2;
@@ -102,68 +89,21 @@ export async function generateBarcodeRun(
   // ✅ Create a per-run folder
   const runId = generateRunId();
   const runDir = path.join(outputDir, "runs", runId);
-  await fs.mkdir(runDir, { recursive: true });
-
+  // IDs remain reserved even if output generation fails or the process crashes.
+  const sampleIDs = await reserveSampleIDs(effectiveCount, generateRandomID);
+  const barcodes = sampleIDs.map(id => new BarcodeInfo(clientCode, id));
+  await fs.mkdir(path.dirname(runDir), { recursive: true });
+  await fs.mkdir(runDir); // Never overwrite another run on a run-ID collision.
   const createdAt = new Date().toISOString();
-
-  // Checkpoint settings
-  const CHECKPOINT_EVERY = 10;
-
-  const barcodes: BarcodeInfo[] = [];
   const createdFiles: string[] = [];
-
-  let usedIDs: Set<string> = new Set();
-  let attempts = 0;
-  const maxAttempts = effectiveCount * 10;
-
-  // Lock so two generators can't trample used-sample-ids.json
-  await acquireLock();
-
-  try {
-    usedIDs = await loadUsedSampleIDs();
-
-    while (barcodes.length < effectiveCount && attempts < maxAttempts) {
-      const sampleID = generateRandomID();
-      if (usedIDs.has(sampleID)) {
-        attempts++;
-        continue;
-      }
-
-      // Mark used immediately (in-memory)
-      usedIDs.add(sampleID);
-
-      const code = `${clientCode}|${sampleID}`;
-      const info = new BarcodeInfo(clientCode, sampleID);
-      barcodes.push(info);
-
-      // Write SVG into run folder
-      const svg = createBarcodeSVG(clientCode, sampleID, panelCode);
-      const filename = `${code.replace("|", "_")}.svg`;
-      const fullPath = path.join(runDir, filename);
-
-      await fs.writeFile(fullPath, svg);
-      createdFiles.push(filename);
-
-      console.log(`Generated barcode: ${code}`);
-
-      // ✅ Checkpoint used IDs periodically to reduce duplicate risk on crash
-      if (barcodes.length % CHECKPOINT_EVERY === 0) {
-        await saveUsedSampleIDs(usedIDs);
-        console.log(`💾 Checkpoint: saved used IDs (${usedIDs.size})`);
-      }
-    }
-
-    if (barcodes.length < effectiveCount) {
-      console.warn(
-        `Only generated ${barcodes.length} unique barcodes (out of effective ${effectiveCount}, requested ${count})`
-      );
-    }
-
-    // Final save
-    await saveUsedSampleIDs(usedIDs);
-    console.log("Saved used sample IDs:", usedIDs.size);
-  } finally {
-    await releaseLock();
+  for (const barcode of barcodes) {
+    const filename = barcode.toFileName();
+    await fs.writeFile(
+      path.join(runDir, filename),
+      createBarcodeSVG(clientCode, barcode.sampleID, panelCode),
+      { flag: "wx" }
+    );
+    createdFiles.push(filename);
   }
 
   // Write manifest for THIS run (not "latest-batch.json")

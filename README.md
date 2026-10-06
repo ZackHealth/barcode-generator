@@ -1,64 +1,40 @@
-# blood-sample-barcodes
+# Barcode generator
 
-This repository contains two ways to generate barcode batches:
+Local Next.js app for generating sample labels and downloading PDFs and CSVs.
+The authoritative reservation ledger is `src/used-sample-ids.json`.
+Read [ledger operation and recovery](docs/ledger-safety.md) before generating real labels.
 
-1. **CLI workflow** – replicates the original script flow.
-2. **Bun JSX web UI** – a minimal browser interface served by Bun.
+## Run locally
 
-## Getting started
-
-Install dependencies once:
-
-```bash
-bun install
-```
-
-### Run the CLI generator
+From the repository root, with Bun 1.3.14:
 
 ```bash
-bun run src/main.ts
+bun install --frozen-lockfile
+bun run dev
 ```
 
-Artifacts (SVGs, CSV, PDF, manifests) land under `output/`.
+Open <http://localhost:3000/generator>. Existing runs appear in `/library`;
+generated files and manifests live in `src/output/runs/` and are ignored by Git.
 
-### Run the Bun JSX web UI
+## Verify changes
+
+Scripts explicitly run Next.js under Bun. Tests use temporary ledgers and
+preserve the real ledger. CI installs from `bun.lock` and runs the same checks:
 
 ```bash
-bun run src/server.tsx
+bun run test
+bun run typecheck
+bun run build
+bun run test:production
 ```
 
-Visit <http://localhost:3000> to submit a batch and download results.
+## Current batch limits
 
-### Browse previously generated batches
+The AAR026 layout currently generates at most 26 labels per run, even when a
+larger count is requested. Multi-page generation needs separate work before a
+250–500-label batch can be requested in one run. The legacy CLI's export step
+still references `latest-batch.json`; use the web app for current run exports.
 
-The UI keeps a `batch-history.json` ledger in each output directory. Open
-<http://localhost:3000/batches> (the "View old batches" link opens it in a
-new tab) to see every batch that has been generated so far, along with direct
-links to re-download the PDF, CSV, or manifest for re-printing.
-
-## Working with older clones
-
-If you cloned the project before the UI commit existed (for example,
-only `bad83e3` is present on your `main` branch), you can replay the UI
-changes locally without needing a remote branch. Copy the patch stored
-in this repository and apply it from your clone:
-
-```bash
-# from the root of your clone that only has the CLI commit
-cp /path/to/barcode-generator/patches/0001-Add-Bun-JSX-web-UI-for-barcode-batches.patch .
-git am 0001-Add-Bun-JSX-web-UI-for-barcode-batches.patch
-```
-
-`git am` will create the `Add Bun JSX web UI for barcode batches`
-commit on top of your existing history so you can run `src/server.tsx`
-and the CLI from the same checkout.
-
-### Verifying the UI commit landed
-
-After applying the patch (or pulling the latest branch) you can confirm
-the UI changes are present by running `git log --oneline | head`. The
-newest entry should include the `Add Bun JSX web UI for barcode batches`
-message and the repo should contain the JSX entry point at
-`src/server.tsx`, the shared pipeline helper `src/runBatch.ts`, and the
-Bun JSX runtime shims under `bun/`.
-
+`bun run start` serves the production build. Next.js scripts use the explicit
+`bun --bun` runtime flag, following the [Bun Next.js guide](https://bun.sh/guides/ecosystem/nextjs).
+Native dependency installation scripts are allowed only for `canvas` and `sharp`.
