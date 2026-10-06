@@ -181,3 +181,20 @@ describe("durable reservations", () => {
     }
   });
 });
+
+test("the workflow owner can reserve while its lock continues blocking other callers", async () => {
+  const previous = process.env.BARCODE_WORKFLOW_TOKEN;
+  const contents = JSON.stringify({ token: "test-workflow-owner" });
+  await fs.writeFile(`${ledger}.workflow.lock`, contents);
+  try {
+    process.env.BARCODE_WORKFLOW_TOKEN = "test-workflow-owner";
+    await tracker.reserveSampleIDs(1, () => "NEWABCDE23", ledger);
+    expect([...await loadUsedSampleIDs(ledger)]).toEqual([...originalIDs, "NEWABCDE23"]);
+    delete process.env.BARCODE_WORKFLOW_TOKEN;
+    await expect(tracker.reserveSampleIDs(1, () => "NEXTABCD23", ledger)).rejects.toThrow("workflow owns");
+    expect(await fs.readFile(`${ledger}.workflow.lock`, "utf8")).toBe(contents);
+  } finally {
+    if (previous === undefined) delete process.env.BARCODE_WORKFLOW_TOKEN;
+    else process.env.BARCODE_WORKFLOW_TOKEN = previous;
+  }
+});
